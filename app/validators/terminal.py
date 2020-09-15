@@ -25,4 +25,3 @@ class ChartForm(BaseForm):
 class Real_time(BaseForm):
     machine_id = StringField(validators=[])
     timestamp = StringField(validators=[])
-    img = StringField(validators=[])

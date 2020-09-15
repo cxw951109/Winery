@@ -24,7 +24,6 @@ import config
 import json
 
 
-
 app = create_app()
 socketio = SocketIO(app, cors_allowed_origins="*")
 m_exit_prog = False
@@ -60,7 +59,7 @@ def mes_update(folder_name):
     times =time.strftime("%Y-%m-%d  %H:%M:%S",time.localtime())
     with open(folder_name+"result.json") as json_file:
         text = json.load(json_file)
-    address =folder_name.replace('Spirit','..')
+    address =folder_name.replace('D:/nginx-1.18.0/html/dist/static','static')
     mes1 = History(timestamp=text["timestamp"], status=text["status"], create_at=times,result=text["result"],machine_id=text["machine_id"])
     History.add(mes1)
     History.flush()
@@ -82,7 +81,7 @@ def mes_update(folder_name):
         else:
             lists = []
             socketio.emit('real',
-                          {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[address+x+'.png' for x in lists],'id':int(text["machine_id"][-2:])-1}},
+                          {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[],'id':int(text["machine_id"][-2:])-1}},
                           namespace='/chatroom')
 
 
@@ -95,7 +94,7 @@ def extract_upload(zip_filename, folder_name):
         print_log('上传文件受损，无法解压')
         return False
     sub_folder_name = f.namelist()[0].split('/')[0]
-    tmp_folder = '../Spirit/static/tmp_data'
+    tmp_folder = 'D:/nginx-1.18.0/html/dist/static/tmp_data'
     if os.path.exists(tmp_folder):
         shutil.rmtree(tmp_folder)
     os.mkdir(tmp_folder)
@@ -151,13 +150,12 @@ def listen():
 
 @app.route('/save_frames', methods=['POST'])
 def upload():
-    print('\n' * 3)
     if flask.request.method == 'POST':
         file0 = request.files['zipfile']
         machine_id = request.args.get('machine_id')
-        if not os.path.isdir('../Spirit/static/site_data/' + machine_id):
-            os.mkdir('../Spirit/static/site_data/' + machine_id)
-        folder_name = "../Spirit/static/site_data/{}/{}/".format(machine_id, request.args.get('folder_name'))
+        if not os.path.isdir('D:/nginx-1.18.0/html/dist/static/site_data/' + machine_id):
+            os.mkdir('D:/nginx-1.18.0/html/dist/static/site_data/' + machine_id)
+        folder_name = "D:/nginx-1.18.0/html/dist/static/site_data/{}/{}/".format(machine_id, request.args.get('folder_name'))
         print_log("folder_name={}".format(folder_name))
         if not os.path.isdir(folder_name):
             os.mkdir(folder_name)
@@ -183,41 +181,42 @@ def upload():
                 return json.dumps({'status': 2})
 
 
-
 @app.route('/real_time_img',methods=["POST"])
 def real_time_img():
     form = Real_time().check_param()
-    file0 = request.files['dd']
-    id = file0.filename.split('-')[0]
-    path ='../Spirit/static/site_data/now'
+    file0 = request.files['image']
+    id = file0.filename.split('_')[0]
+    t =int(time.time())
+    file0.filename =id+'_'+str(t)+'.jpg'
+    path ='D:/nginx-1.18.0/html/dist/static/site_data/now'
+    # path ='../Spirit/src/assets/site_data/now'
     if not os.path.isdir(path):
         os.mkdir(path)
-    files = glob.glob(path+'/24*.png')
+    files = glob.glob(path+'/'+id+'_'+'*.jpg')
     if files:
         os.remove(files[0])
     file0.save(os.path.join(path, file0.filename))
     socketio.emit('present',
-                  {"data": {"images":'../static/site_data/now/'+file0.filename,"id":int(id)-1}},
+                  {"data": {"images":"static/site_data/now/"+file0.filename,"id":int(id)-1}},
                   namespace='/chatroom')
-    return ''
+    return json.dumps({'status': 1})
 
 
 @app.route('/get_imgs',methods=["POST"])
 def get_imgs():
-    path = '../Spirit/static/site_data/now/'
-    list2=[{"id":i,"images":''} for i in range(24)]
+    path = 'D:/nginx-1.18.0/html/dist/static/site_data/now/'
+    list2=[{"id":i,"images":''} for i in range(36)]
     if not os.path.isdir(path):
         return json.dumps({'data': list2})
     for file in os.listdir(path):
-        id = file.split('-')[0]
-        list2[int(id)-1]["images"] ='../static/site_data/now/'+file
+        id = file.split('_')[0]
+        list2[int(id)-1]["images"] ='static/site_data/now/'+file
 
     return json.dumps({'data': list2})
 
-
-t1 = threading.Thread(target=listen, name="listen")
-t1.start()
+# t1 = threading.Thread(target=listen, name="listen")
+# t1.start()
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000)
 

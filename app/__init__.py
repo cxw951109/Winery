@@ -25,7 +25,5 @@ def create_app():
     from app.service import terminal_router
     app.register_blueprint(terminal_router, url_prefix="/terminal")
 
-    if not os.path.exists('C:/Users/cxw/Desktop/711/Spirit/static/site_data'):
-        os.mkdir('C:/Users/cxw/Desktop/711/Spirit/static/site_data')
 
     return app

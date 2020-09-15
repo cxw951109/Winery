@@ -27,7 +27,6 @@ class BaseForm(Form):
                 data_json = json.loads(text)
         except Exception as e:
             data_json = ""
-            print(e)
         data_get = request.args.to_dict()
         if data_post:
             data = data_post
