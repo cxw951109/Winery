@@ -14,7 +14,7 @@ class ListForm(BaseForm):
     ], default=1)
     page_size = IntegerField(validators=[
         RegexpValidate(regex="^[0-9]+$", message="page_index只能传数字")
-    ], default=8)
+    ], default=11)
     date = StringField(validators=[])
     type = StringField(validators=[])
     input = StringField(validators=[])

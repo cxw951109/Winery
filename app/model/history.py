@@ -1,6 +1,8 @@
 from app import db
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.comm import utils
+from app.model.summary import Summary
+
 
 class History(db.Model):
     __tablename__ ='history'
@@ -83,47 +85,6 @@ class History(db.Model):
 
 
     @classmethod
-    def get_today(cls,today):
-        query = cls.query.filter(cls.create_at.contains(today)).all()
-        all =len(query)
-        good = len(list(filter(lambda x:x.result == 0,query)))
-        result ={
-            "all":all,
-            "good":good,
-            "bad":all-good
-        }
-        return result
-
-
-    @classmethod
-    def get_chat(cls,date_list):
-        data = []
-        data1 =[]
-        for i in date_list:
-            data.append(len(cls.query.filter(cls.create_at.contains(i),cls.result == 0).all()))
-            data1.append(len(cls.query.filter(cls.create_at.contains(i),cls.result != 0).all()))
-        good =sum(data)
-        bad =sum(data1)
-        series1 =[
-            {"value": good, "name": '合格'},
-            {"value": bad, "name": '杂质'}
-        ]
-        series=[
-            {
-                "name": '合格',
-                "data": data,
-                "type": 'line'
-            },
-            {
-                "name": '杂质',
-                "data": data1,
-                "type": 'line'
-            }
-        ]
-        series2=[good+bad,good,bad]
-        return series,series1,series2
-
-    @classmethod
     def get_chat1(cls,today):
         data=[]
         data1=[]
@@ -131,12 +92,31 @@ class History(db.Model):
         for i in range(24):
             data.append(len(list(filter(lambda x:(x.result == 0 and x.create_at.hour == i),query))))
             data1.append(len(list(filter(lambda x:(x.result != 0 and x.create_at.hour == i),query))))
-        good =sum(data)
-        bad =sum(data1)
+        query1 = Summary.get_()
+        if query1:
+            all_good = query1.all_num - query1.all_impuritynum
+            all_bad = query1.all_impuritynum
+            today_good = query1.today_num - query1.today_impuritynum
+            today_bad = query1.today_impuritynum
+            all_pass_rate = '%.2f' % (all_good*100 /query1.all_num)
+            today_pass_rate ='%.2f' % (today_good*100 /query1.today_num)
+        else:
+            all_good = 0
+            all_bad = 0
+            today_good = 0
+            today_bad = 0
+            all_pass_rate ='%.2f' % 0
+            today_pass_rate ='%.2f' % 0
+        #饼图
         series1 =[
-            {"value": good, "name": '合格'},
-            {"value": bad, "name": '杂质'}
+            {"value": today_good, "name": '合格'},
+            {"value": today_bad, "name": '杂质'}
         ]
+        series3 =[
+            {"value": all_good, "name": '合格'},
+            {"value": all_bad, "name": '杂质'}
+        ]
+        #折线图
         series=[
             {
                 "name": '合格',
@@ -149,5 +129,37 @@ class History(db.Model):
                 "type": 'line'
             }
         ]
-        series2=[good+bad,good,bad]
-        return series,series1,series2
+        #柱状图
+        series2=[today_good+today_bad,today_good,today_bad]
+        #合格率
+        sy = {"all_pass_rate":all_pass_rate,"today_pass_rate":today_pass_rate}
+        return series,series1,series2,series3,sy
+
+
+    @classmethod
+    def get_chat2(cls,target_res,today,date_list):
+        data=[]
+        data1=[]
+        query = cls.query.filter(cls.create_at.between(target_res,today)).all()
+        for i in date_list:
+            data.append(len(list(filter(lambda x:(x.result == 0 and str(x.create_at.day) == i[-2:]),query))))
+            data1.append(len(list(filter(lambda x:(x.result != 0 and str(x.create_at.day) == i[-2:]),query))))
+        series=[
+            {
+                "name": '合格',
+                "data": data,
+                "type": 'line'
+            },
+            {
+                "name": '杂质',
+                "data": data1,
+                "type": 'line'
+            }
+        ]
+        return series
+
+
+    @classmethod
+    def get_his(cls,machine_id,timestamp):
+        query = cls.query.filter(cls.timestamp == timestamp,cls.machine_id == machine_id).first()
+        return query

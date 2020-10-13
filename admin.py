@@ -7,6 +7,7 @@
 
 
 import os
+import re
 import datetime
 import flask
 import shutil
@@ -15,7 +16,7 @@ import zipfile
 from flask import request, Response
 from app import create_app
 from flask_socketio import SocketIO, emit
-from app.model import History, Imgs
+from app.model import History, Imgs ,Summary
 from app.validators.terminal import Real_time
 import threading
 import socket  #导入socket模块
@@ -44,7 +45,7 @@ def get_mes():
     data = request.get_data()
     data_str = data.decode()
     data_dict =json.dumps({"ID":data_str[1:7],"step":data_str[7:11]})
-    print(type(data_dict), data_dict)
+    # print(type(data_dict), data_dict)
     socketio.emit('chat_message',
                   {"data":str(data_dict)},
                   namespace='/chatroom')
@@ -60,30 +61,93 @@ def mes_update(folder_name):
     with open(folder_name+"result.json") as json_file:
         text = json.load(json_file)
     address =folder_name.replace('D:/nginx-1.18.0/html/dist/static','static')
-    mes1 = History(timestamp=text["timestamp"], status=text["status"], create_at=times,result=text["result"],machine_id=text["machine_id"])
-    History.add(mes1)
-    History.flush()
-    if text["result"] != 0:
-        data = []
-        ls = os.listdir(folder_name)
-        lists = [i[:-4] for i in ls if i.endswith('.txt')]
-        for x in lists:
-            with open(folder_name+x+'.txt') as f:
-                txt =f.read()
-                data.append(Imgs(txt=txt,img=address+x+'.png',img1=address+x+'1.png',img2=address+x+'2.png',img3=address+x+'3.png',history_id=mes1.id))
-        Imgs.add_all(data)
-    result = History.update()
-    if result:
+    query = History.get_his(text["machine_id"], text["timestamp"])
+    if query:
         if text["result"] != 0:
-            socketio.emit('real',
-                          {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[address+x+'.png' for x in lists],'id':int(text["machine_id"][-2:])-1}},
-                          namespace='/chatroom')
+            data = []
+            ls = os.listdir(folder_name)
+            lists = [i[:-4] for i in ls if i.endswith('.txt')]
+            for x in lists:
+                data.append(Imgs(img=address + x + '.png', img1=address + x + '1.png', img2=address + x + '2.png',
+                                 img3=address + x + '3.png', history_id=query.id))
+            Imgs.add_all(data)
+            result = Imgs.update()
+            if result:
+                socketio.emit('real',
+                              {"data": {"result": text["result"], "machine_id": text["machine_id"],
+                                        "images": [address + x + '.png' for x in lists],
+                                        'id': int(text["machine_id"][-2:]) - 1}},
+                              namespace='/chatroom')
         else:
-            lists = []
             socketio.emit('real',
-                          {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[],'id':int(text["machine_id"][-2:])-1}},
+                          {"data": {"result": text["result"], "machine_id": text["machine_id"], "images": [],
+                                    'id': int(text["machine_id"][-2:]) - 1}},
                           namespace='/chatroom')
+    else:
+        mes1 = History(timestamp=text["timestamp"], status=text["status"], create_at=times,result=text["result"],machine_id=text["machine_id"])
+        History.add(mes1)
+        History.flush()
+        if text["result"] != 0:
+            data = []
+            ls = os.listdir(folder_name)
+            lists = [i[:-4] for i in ls if i.endswith('.txt')]
+            for x in lists:
+                data.append(Imgs(img=address+x+'.png',img1=address+x+'1.png',img2=address+x+'2.png',img3=address+x+'3.png',history_id=mes1.id))
+            Imgs.add_all(data)
+        result = History.update()
+        if result:
+            if text["result"] != 0:
+                socketio.emit('real',
+                              {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[address+x+'.png' for x in lists],'id':int(text["machine_id"][-2:])-1}},
+                              namespace='/chatroom')
+            else:
+                socketio.emit('real',
+                              {"data": {"result":text["result"],"machine_id":text["machine_id"],"images":[],'id':int(text["machine_id"][-2:])-1}},
+                              namespace='/chatroom')
 
+
+def mes_update1(folder_name):
+    times =time.strftime("%Y-%m-%d  %H:%M:%S",time.localtime())
+    with open(folder_name+"result.json") as json_file:
+        text = json.load(json_file)
+    address =folder_name.replace('D:/nginx-1.18.0/html/dist/static','static')
+    for i in text["data"]:
+        if i["result"] != 0:
+            query = History.get_his(i["machine_id"],i["timestamp"])
+            if query:
+                if query.result == 0:
+                    query.result = 1
+                data = []
+                com = re.compile(r".*[a-zA-Z]$")
+                ls = os.listdir(folder_name)
+                lists = [n[:-4] for n in ls if n.startswith(str(i["cam_id"])+'_') and com.match(n[:-4])]
+                for x in lists:
+                    data.append(
+                        Imgs(img=address + x + '.png', img1=address + x + '1.png', img2=address + x + '2.png',
+                             img3=address + x + '3.png', history_id=query.id))
+                Imgs.add_all(data)
+            else:
+                mes1 = History(timestamp=i["timestamp"], status=i["status"], create_at=times,result=i["result"],machine_id=i["machine_id"])
+                History.add(mes1)
+                History.flush()
+                data = []
+                com = re.compile(r".*[a-zA-Z]$")
+                ls = os.listdir(folder_name)
+                lists = [n[:-4] for n in ls if n.startswith(str(i["cam_id"])+'_') and com.match(n[:-4])]
+                for x in lists:
+                    data.append(
+                        Imgs(img=address + x + '.png', img1=address + x + '1.png', img2=address + x + '2.png',
+                             img3=address + x + '3.png', history_id=mes1.id))
+                Imgs.add_all(data)
+            result = History.update()
+            if result:
+                socketio.emit('real1',
+                              {"data": {"result":i["result"],"machine_id":i["machine_id"],"images":[address+x+'.png' for x in lists],'id':int(i["machine_id"][-2:])-1}},
+                              namespace='/chatroom')
+        else:
+            socketio.emit('real1',
+                          {"data": {"result": i["result"], "machine_id": i["machine_id"],"images": [],'id': int(i["machine_id"][-2:]) - 1}},
+                          namespace='/chatroom')
 
 
 def extract_upload(zip_filename, folder_name):
@@ -101,7 +165,6 @@ def extract_upload(zip_filename, folder_name):
     print_log('sub_folder_name={}'.format(sub_folder_name))
     f.extractall(path=tmp_folder)
     f.close()
-
     file_list = [x for x in os.listdir(tmp_folder + '/' + sub_folder_name)]
     for filename in file_list:
         print_log("move {} to {}".format(tmp_folder + '/' + sub_folder_name + '/' + filename, folder_name))
@@ -189,7 +252,6 @@ def real_time_img():
     t =int(time.time())
     file0.filename =id+'_'+str(t)+'.jpg'
     path ='D:/nginx-1.18.0/html/dist/static/site_data/now'
-    # path ='../Spirit/src/assets/site_data/now'
     if not os.path.isdir(path):
         os.mkdir(path)
     files = glob.glob(path+'/'+id+'_'+'*.jpg')
@@ -213,6 +275,40 @@ def get_imgs():
         list2[int(id)-1]["images"] ='static/site_data/now/'+file
 
     return json.dumps({'data': list2})
+
+
+@app.route('/save_frames1', methods=['POST'])
+def uploads():
+    if flask.request.method == 'POST':
+        file0 = request.files['zipfile']
+        machine_id = request.args.get('machine_id')
+        if not os.path.isdir('D:/nginx-1.18.0/html/dist/static/site_data/' + machine_id):
+            os.mkdir('D:/nginx-1.18.0/html/dist/static/site_data/' + machine_id)
+        folder_name = "D:/nginx-1.18.0/html/dist/static/site_data/{}/{}/".format(machine_id, request.args.get('folder_name'))
+        print_log("folder_name={}".format(folder_name))
+        if not os.path.isdir(folder_name):
+            os.mkdir(folder_name)
+        print_log('upload received, folder=' + folder_name)
+        filename = '{}_{}.zip'.format(machine_id, int(time.time() * 1000))
+        file0.save(file0.filename)  # file0.filename = 'to_post.zip'
+        size = os.stat(file0.filename).st_size
+        print_log('file size={}, saved_as: {}'.format(size, filename))
+        if size < 10:  # 没有内容
+            if os.path.exists(file0.filename):
+                os.remove(filename)
+            print_log('no file inside the zip file.')
+            return json.dumps({'status': 3})
+        else:
+            result = extract_upload(file0.filename, folder_name)
+            if result:
+                os.remove(file0.filename)
+                mes_update1(folder_name)
+                print_log('received images saved to {}'.format(folder_name))
+                # 此处解压出来的文件夹里，包含result.json文件，检测结果，异常信息，错误代码等都会在里面
+                return json.dumps({'status': 1})
+            else:
+                return json.dumps({'status': 2})
+
 
 # t1 = threading.Thread(target=listen, name="listen")
 # t1.start()

@@ -42,12 +42,13 @@ def special_pagination(query, page, page_size):
     }
     return pagination
 
+
 def func(today, date_list=[], count=0):
     target = (today - datetime.timedelta(days=1))
     target_res = target.strftime("%Y-%m-%d")
     date_list.append(target_res)
     count += 1
-    if count >= 6:
+    if count >= 7:
         pass
     else:
         func(target, date_list, count)
@@ -64,6 +65,7 @@ def func_(today, date_list=[], count=0):
     else:
         func_(target, date_list, count)
     return date_list
+
 
 def func_days(start,end,date_list = []):
     start_time = datetime.datetime.strptime(start, "%Y-%m-%d").date()

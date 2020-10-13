@@ -13,7 +13,6 @@ class Imgs(db.Model):
     __tablename__ ='imgs'
 
     id = db.Column(db.Integer,autoincrement=True,primary_key=True,nullable=False,comment="id")
-    txt = db.Column(db.String(255),nullable=False,default='',comment='坐标')
     img = db.Column(db.String(255),nullable=False,default='',comment='图片')
     img1 = db.Column(db.String(255),nullable=False,default='',comment='图片1')
     img2 = db.Column(db.String(255),nullable=False,default='',comment='图片2')
@@ -21,8 +20,7 @@ class Imgs(db.Model):
     history_id =db.Column(db.Integer, db.ForeignKey('history.id'),  nullable=True)
 
 
-    def __init__(self,txt, img, img1,img2,img3,history_id):
-        self.txt = txt
+    def __init__(self, img, img1,img2,img3,history_id):
         self.img = img
         self.img1 = img1
         self.img2 = img2
